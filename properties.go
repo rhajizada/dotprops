@@ -63,6 +63,25 @@ func parseProperties(data []byte) (map[string]interface{}, error) {
 	return props, nil
 }
 
+// getNestedProperty traverses the nested map to retrieve the value for a dot-separated key.
+func getNestedProperty(props map[string]interface{}, key string) (interface{}, bool) {
+	parts := strings.Split(key, ".")
+	var current interface{} = props
+	for _, part := range parts {
+		switch currMap := current.(type) {
+		case map[string]interface{}:
+			var ok bool
+			current, ok = currMap[part]
+			if !ok {
+				return nil, false
+			}
+		default:
+			return nil, false
+		}
+	}
+	return current, true
+}
+
 // setStructFields sets the fields of the struct based on the provided properties.
 func setStructFields(structVal reflect.Value, props map[string]interface{}) error {
 	structType := structVal.Type()
@@ -71,14 +90,19 @@ func setStructFields(structVal reflect.Value, props map[string]interface{}) erro
 		field := structVal.Field(i)
 		fieldType := structType.Field(i)
 
+		// Skip unexported fields
+		if !field.CanSet() {
+			continue
+		}
+
 		// Get the property key from the struct tag or use the field name
 		propertyKey := fieldType.Tag.Get("property")
 		if propertyKey == "" {
 			propertyKey = fieldType.Name
 		}
 
-		// Check if the property exists in the map
-		value, ok := props[propertyKey]
+		// Retrieve the value using the helper function
+		value, ok := getNestedProperty(props, propertyKey)
 		if !ok {
 			continue // Property not found in data
 		}

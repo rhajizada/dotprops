@@ -5,23 +5,21 @@ import (
 	"reflect"
 )
 
-// Unmarshal parses the properties-encoded data and stores the result
-// in the value pointed to by v, which must be a pointer to a struct.
-
-// Unmarshal parses the properties-encoded data and stores the result
-// in the value pointed to by v, which must be a pointer to a struct.
+// Unmarshal parses the properties data and populates the provided struct.
 func Unmarshal(data []byte, v interface{}) error {
 	val := reflect.ValueOf(v)
+
+	// Ensure v is a pointer to a struct
 	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
-		return errors.New("unmarshal(non-struct pointer)")
+		return errors.New("unmarshal expects a pointer to a struct")
 	}
 
-	// Parse the data into key-value pairs
+	// Parse the properties
 	props, err := parseProperties(data)
 	if err != nil {
 		return err
 	}
 
-	// Set struct fields based on the properties
+	// Set the struct fields
 	return setStructFields(val.Elem(), props)
 }

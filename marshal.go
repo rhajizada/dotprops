@@ -88,8 +88,7 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 		case reflect.Float32, reflect.Float64:
 			props[fullKey] = fmt.Sprintf("%f", field.Float())
 		default:
-			// Skip unsupported field types or you can handle slices, arrays, etc.
-			continue
+			return fmt.Errorf("unsupported field type: %s for field %s", field.Kind(), fullKey)
 		}
 	}
 

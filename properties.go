@@ -10,47 +10,111 @@ import (
 )
 
 // parseProperties reads properties data and returns a map of key-value pairs.
-func parseProperties(data []byte) (map[string]string, error) {
-	props := make(map[string]string)
+func parseProperties(data []byte) (map[string]interface{}, error) {
+	props := make(map[string]interface{})
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	pattern := regexp.MustCompile("^([^#][^=]*)=(.*)")
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines and comments
+		if len(line) == 0 || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!") {
+			continue
+		}
+
 		match := pattern.FindStringSubmatch(line)
 		if len(match) > 0 {
-			key := match[1]
-			value := match[2]
-			props[key] = value
+			key := strings.TrimSpace(match[1])
+			value := strings.TrimSpace(match[2])
+
+			// Split the key into parts for nested maps
+			keyList := strings.Split(key, ".")
+
+			current := props
+			for i := 0; i < len(keyList)-1; i++ {
+				k := keyList[i]
+				if _, ok := current[k]; !ok {
+					current[k] = make(map[string]interface{})
+				}
+				// Type assertion to navigate deeper into the nested map
+				if nextMap, ok := current[k].(map[string]interface{}); ok {
+					current = nextMap
+				} else {
+					// Handle type mismatch if the existing key is not a map
+					return nil, fmt.Errorf("type mismatch at key: %s", k)
+				}
+			}
+
+			// Assign the value to the last key
+			lastKey := keyList[len(keyList)-1]
+			current[lastKey] = value
 		} else {
+			// Line didn't match the pattern, handle as needed (skip or log)
 			continue
 		}
 	}
 
-	return props, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return props, nil
 }
 
 // setStructFields sets the fields of the struct based on the provided properties.
-func setStructFields(structVal reflect.Value, props map[string]string) error {
+func setStructFields(structVal reflect.Value, props map[string]interface{}) error {
 	structType := structVal.Type()
 
 	for i := 0; i < structVal.NumField(); i++ {
 		field := structVal.Field(i)
 		fieldType := structType.Field(i)
-		propertyKey := fieldType.Tag.Get("property")
 
+		// Get the property key from the struct tag or use the field name
+		propertyKey := fieldType.Tag.Get("property")
 		if propertyKey == "" {
-			continue
+			propertyKey = fieldType.Name
 		}
 
-		valueStr, ok := props[propertyKey]
+		// Check if the property exists in the map
+		value, ok := props[propertyKey]
 		if !ok {
 			continue // Property not found in data
 		}
 
-		// Set the field value
-		if err := setFieldValue(field, valueStr); err != nil {
-			return fmt.Errorf("error setting field '%s': %v", fieldType.Name, err)
+		// Handle nested structs
+		if field.Kind() == reflect.Struct {
+			if valueMap, ok := value.(map[string]interface{}); ok {
+				// Recursively set fields of the nested struct
+				if err := setStructFields(field, valueMap); err != nil {
+					return fmt.Errorf("error setting nested struct '%s': %v", fieldType.Name, err)
+				}
+			} else {
+				return fmt.Errorf("expected map for nested struct '%s', got %T", fieldType.Name, value)
+			}
+		} else if field.Kind() == reflect.Ptr && field.Type().Elem().Kind() == reflect.Struct {
+			if valueMap, ok := value.(map[string]interface{}); ok {
+				// Initialize the pointer to a new struct if nil
+				if field.IsNil() {
+					field.Set(reflect.New(field.Type().Elem()))
+				}
+				// Recursively set fields of the nested struct
+				if err := setStructFields(field.Elem(), valueMap); err != nil {
+					return fmt.Errorf("error setting nested struct '%s': %v", fieldType.Name, err)
+				}
+			} else {
+				return fmt.Errorf("expected map for nested struct pointer '%s', got %T", fieldType.Name, value)
+			}
+		} else {
+			// Set the field value
+			if valueStr, ok := value.(string); ok {
+				if err := setFieldValue(field, valueStr); err != nil {
+					return fmt.Errorf("error setting field '%s': %v", fieldType.Name, err)
+				}
+			} else {
+				return fmt.Errorf("expected string value for field '%s', got %T", fieldType.Name, value)
+			}
 		}
 	}
 
@@ -58,39 +122,17 @@ func setStructFields(structVal reflect.Value, props map[string]string) error {
 }
 
 // setFieldValue sets a single field value based on the provided string.
-
-// setFieldValue sets a single field value based on the provided string.
 func setFieldValue(field reflect.Value, valueStr string) error {
-	// Handle pointer types by dereferencing to the base type
-	isPointer := false
+	// Handle pointer types
 	if field.Kind() == reflect.Ptr {
-		isPointer = true
 		if field.IsNil() {
-			// Initialize the pointer to a new value unless valueStr is empty
-			if valueStr != "" {
-				field.Set(reflect.New(field.Type().Elem()))
-			} else {
-				// If valueStr is empty, keep the pointer as nil
-				return nil
-			}
+			field.Set(reflect.New(field.Type().Elem()))
 		}
 		field = field.Elem()
 	}
 
 	// Trim whitespace from valueStr
 	valueStr = strings.TrimSpace(valueStr)
-
-	// If valueStr is empty, set the field to its zero value or nil for pointers
-	if valueStr == "" {
-		if isPointer {
-			// Set pointer field to nil
-			fieldAddr := field.Addr()
-			fieldAddr.Set(reflect.Zero(fieldAddr.Type()))
-		} else {
-			field.Set(reflect.Zero(field.Type()))
-		}
-		return nil
-	}
 
 	switch field.Kind() {
 	case reflect.String:

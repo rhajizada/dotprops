@@ -198,7 +198,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/yourusername/jprops"
+    "github.com/rhajizada/jprops"
 )
 
 type DatabaseConfig struct {

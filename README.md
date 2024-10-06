@@ -1,5 +1,7 @@
 # jprops
 
+![ci](https://github.com/rhajizada/jprops/actions/workflows/ci.yml/badge.svg)
+
 jprops is a `Go` package for marshalling and unmarshalling `Java` `.properties`
 files into structs, similar to how the `encoding/json` package works.
 

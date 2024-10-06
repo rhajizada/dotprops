@@ -1,8 +1,8 @@
-# jprops
+# dotprops
 
-![ci](https://github.com/rhajizada/jprops/actions/workflows/ci.yml/badge.svg)
+![ci](https://github.com/rhajizada/dotprops/actions/workflows/ci.yml/badge.svg)
 
-jprops is a `Go` package for marshalling and unmarshalling `Java` `.properties`
+dotprops is a `Go` package for marshalling and unmarshalling `Java` `.properties`
 files into structs, similar to how the `encoding/json` package works.
 
 ## Features
@@ -15,7 +15,7 @@ files into structs, similar to how the `encoding/json` package works.
 ## Installation
 
 ```bash
-go get -u github.com/rhajizada/jprops
+go get -u github.com/rhajizada/dotprops
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ go get -u github.com/rhajizada/jprops
 ### Importing the package
 
 ```go
-import "github.com/rhajizada/jprops"
+import "github.com/rhajizada/dotprops"
 ```
 
 ### Marshalling
@@ -37,7 +37,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/rhajizada/jprops"
+    "github.com/rhajizada/dotprops"
 )
 
 type Config struct {
@@ -53,7 +53,7 @@ func main() {
         Debug:   true,
     }
 
-    data, err := jprops.Marshal(config)
+    data, err := dotprops.Marshal(config)
     if err != nil {
         log.Fatal(err)
     }
@@ -71,7 +71,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/rhajizada/jprops"
+    "github.com/rhajizada/dotprops"
 )
 
 type Config struct {
@@ -88,7 +88,7 @@ app.debug=true
 `)
 
     var config Config
-    err := jprops.Unmarshal(data, &config)
+    err := dotprops.Unmarshal(data, &config)
     if err != nil {
         log.Fatal(err)
     }
@@ -109,7 +109,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/rhajizada/jprops"
+    "github.com/rhajizada/dotprops"
 )
 
 type Config struct {
@@ -125,7 +125,7 @@ app.port=8080
 `)
 
     var config Config
-    err := jprops.Unmarshal(data, &config)
+    err := dotprops.Unmarshal(data, &config)
     if err != nil {
         log.Fatal(err)
     }
@@ -144,7 +144,7 @@ app.port=8080
 
 ### Nested structures
 
-`jprops` supports nested structs to represent hierarchical properties using dot notation.
+`dotprops` supports nested structs to represent hierarchical properties using dot notation.
 
 ```go
 package main
@@ -153,7 +153,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/rhajizada/jprops"
+    "github.com/rhajizada/dotprops"
 )
 
 type DatabaseConfig struct {
@@ -178,7 +178,7 @@ database.password=secret
 `)
 
     var config Config
-    err := jprops.Unmarshal(data, &config)
+    err := dotprops.Unmarshal(data, &config)
     if err != nil {
         log.Fatal(err)
     }
@@ -200,7 +200,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/rhajizada/jprops"
+    "github.com/rhajizada/dotprops"
 )
 
 type DatabaseConfig struct {
@@ -223,7 +223,7 @@ database.password=secret
 `)
 
     var config Config
-    err := jprops.Unmarshal(data, &config)
+    err := dotprops.Unmarshal(data, &config)
     if err != nil {
         log.Fatal(err)
     }

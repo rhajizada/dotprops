@@ -1,3 +1,3 @@
-module github.com/rhajizada/jprops
+module github.com/rhajizada/dotprops
 
 go 1.22.1

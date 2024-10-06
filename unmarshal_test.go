@@ -1,4 +1,4 @@
-package jprops
+package dotprops
 
 import (
 	"testing"

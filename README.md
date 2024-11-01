@@ -41,7 +41,7 @@ import (
 )
 
 type Config struct {
-    AppName string `property:"app.name"
+    AppName string `property:"app.name"`
     Port    int    `property:"app.port"`
     Debug   bool   `property:"app.debug"`
 }

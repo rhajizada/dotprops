@@ -270,3 +270,204 @@ func TestMarshalWithUnsupportedNestedStruct(t *testing.T) {
 		t.Fatal("Expected Marshal to fail due to unsupported nested struct field type, but it did not")
 	}
 }
+
+func TestMarshalWithMultipleEmbeddedStructs(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+	type SecurityConfig struct {
+		Enabled bool `property:"enabled"`
+	}
+	type EmbeddedConfig struct {
+		BaseConfig
+		SecurityConfig
+		Name string `property:"name"`
+	}
+
+	config := &EmbeddedConfig{
+		BaseConfig: BaseConfig{
+			Version: "2.0.0",
+		},
+		SecurityConfig: SecurityConfig{
+			Enabled: true,
+		},
+		Name: "MultiEmbeddedService",
+	}
+
+	expected := "enabled=true\nname=MultiEmbeddedService\nversion=2.0.0\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}
+
+func TestMarshalWithPointerEmbeddedStructs(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+	type EmbeddedConfig struct {
+		*BaseConfig
+		Name string `property:"name"`
+	}
+
+	config := &EmbeddedConfig{
+		BaseConfig: &BaseConfig{
+			Version: "3.1.4",
+		},
+		Name: "PointerEmbeddedService",
+	}
+
+	expected := "name=PointerEmbeddedService\nversion=3.1.4\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}
+func TestMarshalWithCustomTextMarshaler(t *testing.T) {
+	type CustomConfig struct {
+		Name  CustomString `property:"name"`
+		Count CustomInt    `property:"count"`
+	}
+
+	config := &CustomConfig{
+		Name:  "example", // Changed from "custom_example" to "example"
+		Count: 100,
+	}
+
+	expected := "count=custom_100\nname=custom_example\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}
+
+func TestMarshalWithUnsupportedNestedStructTypes(t *testing.T) {
+	type InnerUnsupported struct {
+		Data []string `property:"data"`
+	}
+	type OuterConfig struct {
+		Name  string           `property:"name"`
+		Inner InnerUnsupported `property:"inner"`
+	}
+
+	config := &OuterConfig{
+		Name: "OuterService",
+		Inner: InnerUnsupported{
+			Data: []string{"one", "two"},
+		},
+	}
+
+	_, err := Marshal(config)
+	if err == nil {
+		t.Fatal("Expected Marshal to fail due to unsupported nested struct field type, but it did not")
+	}
+}
+
+func TestMarshalWithMultipleLevelsNestedStructs(t *testing.T) {
+	type Level3 struct {
+		Key string `property:"key"`
+	}
+	type Level2 struct {
+		Level3 Level3 `property:"level3"`
+	}
+	type Level1 struct {
+		Level2 Level2 `property:"level2"`
+	}
+	type OuterConfig struct {
+		Name   string `property:"name"`
+		Level1 Level1 `property:"level1"`
+		Active bool   `property:"active"`
+	}
+
+	config := &OuterConfig{
+		Name: "DeepNestedService",
+		Level1: Level1{
+			Level2: Level2{
+				Level3: Level3{
+					Key: "deep_value",
+				},
+			},
+		},
+		Active: true,
+	}
+
+	expected := "active=true\nlevel1.level2.level3.key=deep_value\nname=DeepNestedService\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}
+
+func TestMarshalWithMissingEmbeddedStructFields(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+	type EmbeddedConfig struct {
+		BaseConfig
+		Name string `property:"name"`
+	}
+
+	config := &EmbeddedConfig{
+		BaseConfig: BaseConfig{
+			Version: "", // Zero value
+		},
+		Name: "EmbeddedService",
+	}
+
+	expected := "name=EmbeddedService\nversion=\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}
+
+func TestMarshalWithExtraProperties(t *testing.T) {
+	type Config struct {
+		Name string `property:"name"`
+		Age  int    `property:"age"`
+		// Extra field without a property tag should be ignored
+		unexportedField string
+	}
+
+	config := &Config{
+		Name:            "ExtraService",
+		Age:             45,
+		unexportedField: "should_be_ignored",
+	}
+
+	expected := "age=45\nname=ExtraService\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}

@@ -457,31 +457,6 @@ version=1.2.3
 	}
 }
 
-func TestUnmarshalWithWhitespace(t *testing.T) {
-	type Config struct {
-		Name string `property:"name"`
-		Port int    `property:"port"`
-	}
-
-	data := []byte(`
-name = WhitespaceService 
-port =  8080  
-`)
-
-	var config Config
-	err := Unmarshal(data, &config)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-
-	if config.Name != "WhitespaceService" {
-		t.Errorf("Expected Name 'WhitespaceService', got '%s'", config.Name)
-	}
-	if config.Port != 8080 {
-		t.Errorf("Expected Port 8080, got %d", config.Port)
-	}
-}
-
 func TestUnmarshalWithDuplicateKeys(t *testing.T) {
 	type Config struct {
 		Name string `property:"name"`
@@ -501,5 +476,237 @@ name=Second
 	// The last occurrence should take precedence
 	if config.Name != "Second" {
 		t.Errorf("Expected Name 'Second', got '%s'", config.Name)
+	}
+}
+
+func TestUnmarshalWithMultipleEmbeddedStructs(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+	type SecurityConfig struct {
+		Enabled bool `property:"enabled"`
+	}
+	type EmbeddedConfig struct {
+		BaseConfig
+		SecurityConfig
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+	version=2.0.0
+	enabled=true
+	name=MultiEmbeddedService
+	`)
+
+	var config EmbeddedConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Version != "2.0.0" {
+		t.Errorf("Expected Version '2.0.0', got '%s'", config.Version)
+	}
+	if config.Enabled != true {
+		t.Errorf("Expected Enabled true, got %v", config.Enabled)
+	}
+	if config.Name != "MultiEmbeddedService" {
+		t.Errorf("Expected Name 'MultiEmbeddedService', got '%s'", config.Name)
+	}
+}
+
+func TestUnmarshalWithPointerEmbeddedStructs(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+	type EmbeddedConfig struct {
+		*BaseConfig
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+	version=3.1.4
+	name=PointerEmbeddedService
+	`)
+
+	var config EmbeddedConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.BaseConfig == nil {
+		t.Fatal("Expected BaseConfig to be initialized, got nil")
+	}
+	if config.BaseConfig.Version != "3.1.4" {
+		t.Errorf("Expected Version '3.1.4', got '%s'", config.BaseConfig.Version)
+	}
+	if config.Name != "PointerEmbeddedService" {
+		t.Errorf("Expected Name 'PointerEmbeddedService', got '%s'", config.Name)
+	}
+}
+
+func TestUnmarshalWithCustomTextUnmarshaler(t *testing.T) {
+	type CustomConfig struct {
+		Name  CustomString `property:"name"`
+		Count CustomInt    `property:"count"`
+	}
+
+	data := []byte(`
+	name=custom_example
+	count=custom_100
+	`)
+
+	var config CustomConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "example" {
+		t.Errorf("Expected Name 'example', got '%s'", config.Name)
+	}
+	if config.Count != 100 {
+		t.Errorf("Expected Count 100, got %d", config.Count)
+	}
+}
+
+func TestUnmarshalWithUnsupportedNestedStructTypes(t *testing.T) {
+	type InnerUnsupported struct {
+		Data []string `property:"data"`
+	}
+	type OuterConfig struct {
+		Name  string           `property:"name"`
+		Inner InnerUnsupported `property:"inner"`
+	}
+
+	data := []byte(`
+	name=OuterService
+	inner.data=one,two,three
+	`)
+
+	var config OuterConfig
+	err := Unmarshal(data, &config)
+	if err == nil {
+		t.Fatal("Expected Unmarshal to fail due to unsupported nested struct field type, but it did not")
+	}
+
+	// Since 'inner.data' is unsupported, it should not be set
+	if config.Inner.Data != nil {
+		t.Errorf("Expected Inner.Data to be nil, got %v", config.Inner.Data)
+	}
+}
+
+func TestUnmarshalWithMultipleLevelsNestedStructs(t *testing.T) {
+	type Level3 struct {
+		Key string `property:"key"`
+	}
+	type Level2 struct {
+		Level3 Level3 `property:"level3"`
+	}
+	type Level1 struct {
+		Level2 Level2 `property:"level2"`
+	}
+	type OuterConfig struct {
+		Name   string `property:"name"`
+		Level1 Level1 `property:"level1"`
+		Active bool   `property:"active"`
+	}
+
+	data := []byte(`
+	name=DeepNestedService
+	active=true
+	level1.level2.level3.key=deep_value
+	`)
+
+	var config OuterConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "DeepNestedService" {
+		t.Errorf("Expected Name 'DeepNestedService', got '%s'", config.Name)
+	}
+	if config.Active != true {
+		t.Errorf("Expected Active true, got %v", config.Active)
+	}
+	if config.Level1.Level2.Level3.Key != "deep_value" {
+		t.Errorf("Expected Level3.Key 'deep_value', got '%s'", config.Level1.Level2.Level3.Key)
+	}
+}
+
+func TestUnmarshalWithMissingEmbeddedStructFields(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+	type EmbeddedConfig struct {
+		BaseConfig
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+	name=EmbeddedService
+	`)
+
+	var config EmbeddedConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Version != "" {
+		t.Errorf("Expected Version '', got '%s'", config.Version)
+	}
+	if config.Name != "EmbeddedService" {
+		t.Errorf("Expected Name 'EmbeddedService', got '%s'", config.Name)
+	}
+}
+
+func TestUnmarshalWithExtraProperties(t *testing.T) {
+	type Config struct {
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+	name=ExtraService
+	extra.key=extra_value
+	another.key=another_value
+	`)
+
+	var config Config
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "ExtraService" {
+		t.Errorf("Expected Name 'ExtraService', got '%s'", config.Name)
+	}
+	// Extra properties should be ignored
+}
+
+func TestUnmarshalWithWhitespace(t *testing.T) {
+	type Config struct {
+		Name string `property:"name"`
+		Port int    `property:"port"`
+	}
+
+	data := []byte(`
+	name = WhitespaceService 
+	port =  8080  
+	`)
+
+	var config Config
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "WhitespaceService" {
+		t.Errorf("Expected Name 'WhitespaceService', got '%s'", config.Name)
+	}
+	if config.Port != 8080 {
+		t.Errorf("Expected Port 8080, got %d", config.Port)
 	}
 }

@@ -14,8 +14,6 @@ type TextMarshaler interface {
 
 // Marshal returns the properties encoding of v.
 // v must be a struct.
-// Marshal returns the properties encoding of v.
-// v must be a struct or a pointer to a struct.
 func Marshal(v interface{}) ([]byte, error) {
 	val := reflect.ValueOf(v)
 	if val.Kind() == reflect.Ptr {

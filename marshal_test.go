@@ -471,3 +471,44 @@ func TestMarshalWithExtraProperties(t *testing.T) {
 		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
 	}
 }
+
+// TestMarshalWithPropMarshaler tests marshalling with PropMarshaler interface
+func TestMarshalWithPropMarshaler(t *testing.T) {
+	type CustomConfig struct {
+		CustomField CustomPropMarshaller `property:"custom.field"`
+		Name        string               `property:"name"`
+	}
+
+	config := &CustomConfig{
+		CustomField: CustomPropMarshaller{
+			Field1: "value1",
+			Field2: 42,
+		},
+		Name: "TestService",
+	}
+
+	expected := "custom.field=value1_42\nname=TestService\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
+	}
+}
+
+// TestMarshalWithPropMarshalerError tests marshalling when PropMarshaler returns an error
+func TestMarshalWithPropMarshalerError(t *testing.T) {
+
+	config := &FaultyConfig{
+		FaultyField: FaultyPropMarshaller{},
+		Name:        "FaultyService",
+	}
+
+	_, err := Marshal(config)
+	if err == nil {
+		t.Fatal("Expected Marshal to fail due to PropMarshaler error, but it did not")
+	}
+}

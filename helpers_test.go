@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // Shared Test Structures
@@ -107,4 +108,58 @@ func (cf *CustomFloat) UnmarshalText(text []byte) error {
 	}
 	*cf = CustomFloat(num)
 	return nil
+}
+
+type CustomPropMarshaller struct {
+	Field1 string
+	Field2 int
+}
+
+func (c CustomPropMarshaller) MarshalProp() (string, string, error) {
+	key := "custom.field"
+	value := fmt.Sprintf("%s_%d", c.Field1, c.Field2)
+	return key, value, nil
+}
+
+// CustomPropUnmarshaller implements PropUnmarshaler
+type CustomPropUnmarshaller struct {
+	Field1 string
+	Field2 int
+}
+
+func (c *CustomPropUnmarshaller) UnmarshalProp(key string, value string) error {
+	if key != "custom.field" {
+		return fmt.Errorf("unexpected key: %s", key)
+	}
+	parts := strings.Split(value, "_")
+	if len(parts) != 2 {
+		return errors.New("invalid value format")
+	}
+	c.Field1 = parts[0]
+	var err error
+	c.Field2, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type FaultyPropMarshaller struct{}
+
+func (f FaultyPropMarshaller) MarshalProp() (string, string, error) {
+	return "", "", errors.New("marshaling error")
+}
+
+type FaultyConfig struct {
+	FaultyField FaultyPropMarshaller `property:"faulty.field"`
+	Name        string               `property:"name"`
+}
+
+type FaultyPropUnmarshaller struct {
+	Field1 string
+	Field2 int
+}
+
+func (f *FaultyPropUnmarshaller) UnmarshalProp(key string, value string) error {
+	return errors.New("unmarshaling error")
 }

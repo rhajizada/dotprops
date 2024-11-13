@@ -127,6 +127,19 @@ func setStructFields(structVal reflect.Value, props map[string]interface{}) erro
 			continue // Property not found in data
 		}
 
+		// Check if the field implements PropUnmarshaler
+		if pu, ok := field.Addr().Interface().(PropUnmarshaller); ok {
+			key, valStr, err := extractKeyValue(propertyKey, value)
+			if err != nil {
+				return fmt.Errorf("error extracting key-value for field '%s': %v", propertyKey, err)
+			}
+			err = pu.UnmarshalProp(key, valStr)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field '%s': %v", propertyKey, err)
+			}
+			continue
+		}
+
 		// Handle nested structs
 		if field.Kind() == reflect.Struct {
 			// The properties should be nested under propertyKey
@@ -180,6 +193,15 @@ func setStructFields(structVal reflect.Value, props map[string]interface{}) erro
 	}
 
 	return nil
+}
+
+// Helper function to extract key-value pair for PropUnmarshaler
+func extractKeyValue(propertyKey string, value interface{}) (string, string, error) {
+	valueStr, ok := value.(string)
+	if !ok {
+		return "", "", fmt.Errorf("expected string value for property '%s', got %T", propertyKey, value)
+	}
+	return propertyKey, valueStr, nil
 }
 
 // setFieldValue sets a single field value based on the provided string.

@@ -7,13 +7,8 @@ import (
 	"strings"
 )
 
-// TextMarshaler interface as defined in the encoding package
-type TextMarshaler interface {
-	MarshalText() (text []byte, err error)
-}
-
 // Marshal returns the properties encoding of v.
-// v must be a struct.
+// v must be a struct or a pointer to a struct.
 func Marshal(v interface{}) ([]byte, error) {
 	val := reflect.ValueOf(v)
 	if val.Kind() == reflect.Ptr {
@@ -90,6 +85,16 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 				continue // Skip nil pointers
 			}
 			field = field.Elem()
+		}
+
+		// Check if the field implements PropMarshaler
+		if pm, ok := field.Addr().Interface().(PropMarshaler); ok {
+			key, value, err := pm.MarshalProp()
+			if err != nil {
+				return fmt.Errorf("error marshaling field '%s': %v", fullKey, err)
+			}
+			props[key] = value
+			continue
 		}
 
 		// Check if the field implements TextMarshaler

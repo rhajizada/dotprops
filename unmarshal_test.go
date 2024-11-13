@@ -710,3 +710,46 @@ func TestUnmarshalWithWhitespace(t *testing.T) {
 		t.Errorf("Expected Port 8080, got %d", config.Port)
 	}
 }
+
+// TestUnmarshalWithPropUnmarshaler tests unmarshalling with PropUnmarshaler interface
+func TestUnmarshalWithPropUnmarshaler(t *testing.T) {
+	type CustomConfig struct {
+		CustomField CustomPropUnmarshaller `property:"custom.field"`
+		Name        string                 `property:"name"`
+	}
+
+	data := []byte(`
+custom.field=value1_42
+name=TestService
+`)
+
+	var config CustomConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.CustomField.Field1 != "value1" {
+		t.Errorf("Expected CustomField.Field1 'value1', got '%s'", config.CustomField.Field1)
+	}
+	if config.CustomField.Field2 != 42 {
+		t.Errorf("Expected CustomField.Field2 42, got %d", config.CustomField.Field2)
+	}
+	if config.Name != "TestService" {
+		t.Errorf("Expected Name 'TestService', got '%s'", config.Name)
+	}
+}
+
+// TestUnmarshalWithPropUnmarshalerError tests unmarshalling when PropUnmarshaler returns an error
+func TestUnmarshalWithPropUnmarshalerError(t *testing.T) {
+	data := []byte(`
+faulty.field=invalid_value
+name=FaultyService
+`)
+
+	var config FaultyConfig
+	err := Unmarshal(data, &config)
+	if err == nil {
+		t.Fatal("Expected Unmarshal to fail due to PropUnmarshaler error, but it did not")
+	}
+}

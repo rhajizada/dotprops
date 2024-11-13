@@ -5,7 +5,6 @@ import (
 	"reflect"
 )
 
-// Unmarshal parses the properties data and populates the provided struct.
 func Unmarshal(data []byte, v interface{}) error {
 	val := reflect.ValueOf(v)
 

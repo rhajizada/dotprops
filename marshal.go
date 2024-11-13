@@ -8,11 +8,21 @@ import (
 )
 
 // Marshal returns the properties encoding of v.
-// v must be a struct.
+// v must be a struct or a pointer to a struct.
 func Marshal(v interface{}) ([]byte, error) {
 	val := reflect.ValueOf(v)
-	if val.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("marshal expects a struct")
+	if val.Kind() == reflect.Ptr {
+		if val.Elem().Kind() != reflect.Struct {
+			return nil, fmt.Errorf("marshal expects a pointer to a struct")
+		}
+		val = val.Elem()
+	} else if val.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("marshal expects a struct or a pointer to a struct")
+	}
+
+	// Ensure the value is addressable
+	if !val.CanAddr() {
+		return nil, fmt.Errorf("marshal requires an addressable struct to handle TextMarshaler")
 	}
 
 	props := make(map[string]string)
@@ -50,16 +60,23 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 			continue
 		}
 
+		// Check if the field is embedded
+		isEmbedded := fieldType.Anonymous
+
 		// Get the property key from the struct tag or use the field name
 		propertyKey := fieldType.Tag.Get("property")
-		if propertyKey == "" {
+		if propertyKey == "" && !isEmbedded {
 			propertyKey = fieldType.Name
 		}
 
-		// Build the full key
-		fullKey := propertyKey
-		if prefix != "" {
+		var fullKey string
+		if isEmbedded {
+			// Do not add propertyKey as prefix; use the current prefix
+			fullKey = prefix
+		} else if prefix != "" {
 			fullKey = prefix + "." + propertyKey
+		} else {
+			fullKey = propertyKey
 		}
 
 		// Handle pointer types
@@ -70,12 +87,42 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 			field = field.Elem()
 		}
 
+		// Check if the field implements PropMarshaler
+		if pm, ok := field.Addr().Interface().(PropMarshaler); ok {
+			key, value, err := pm.MarshalProp()
+			if err != nil {
+				return fmt.Errorf("error marshaling field '%s': %v", fullKey, err)
+			}
+			props[key] = value
+			continue
+		}
+
+		// Check if the field implements TextMarshaler
+		if field.CanInterface() {
+			if marshaler, ok := field.Addr().Interface().(TextMarshaler); ok {
+				text, err := marshaler.MarshalText()
+				if err != nil {
+					return fmt.Errorf("error marshaling field '%s': %v", fullKey, err)
+				}
+				props[fullKey] = string(text)
+				continue
+			}
+		}
+
 		switch field.Kind() {
 		case reflect.Struct:
-			// Recursively encode nested structs
-			err := encodeStruct(fullKey, field, props)
-			if err != nil {
-				return err
+			if isEmbedded {
+				// For embedded structs, continue with the same prefix
+				err := encodeStruct(fullKey, field, props)
+				if err != nil {
+					return err
+				}
+			} else {
+				// For nested structs, use the new prefix
+				err := encodeStruct(fullKey, field, props)
+				if err != nil {
+					return err
+				}
 			}
 		case reflect.String:
 			props[fullKey] = field.String()

@@ -37,6 +37,21 @@ type ConfigWithPointer struct {
 	Database *DatabaseConfig `property:"database"`
 }
 
+type MultiLevelNestedConfig struct {
+	Service ServiceConfig `property:"service"`
+}
+
+type ServiceConfig struct {
+	Name     string         `property:"name"`
+	Endpoint EndpointConfig `property:"endpoint"`
+}
+
+type EndpointConfig struct {
+	URL    string `property:"url"`
+	Port   int    `property:"port"`
+	Active bool   `property:"active"`
+}
+
 // Custom Types Implementing Interfaces for Testing
 
 // CustomString implements TextMarshaler and TextUnmarshaler
@@ -71,5 +86,25 @@ func (ci *CustomInt) UnmarshalText(text []byte) error {
 		return err
 	}
 	*ci = CustomInt(num)
+	return nil
+}
+
+// CustomFloat implements TextMarshaler and TextUnmarshaler
+type CustomFloat float64
+
+func (cf CustomFloat) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("custom_%.2f", cf)), nil
+}
+
+func (cf *CustomFloat) UnmarshalText(text []byte) error {
+	if len(text) < 8 || string(text[:7]) != "custom_" {
+		return errors.New("invalid prefix")
+	}
+	numStr := string(text[7:])
+	num, err := strconv.ParseFloat(numStr, 64)
+	if err != nil {
+		return err
+	}
+	*cf = CustomFloat(num)
 	return nil
 }

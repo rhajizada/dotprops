@@ -67,16 +67,23 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 			continue
 		}
 
+		// Check if the field is embedded
+		isEmbedded := fieldType.Anonymous
+
 		// Get the property key from the struct tag or use the field name
 		propertyKey := fieldType.Tag.Get("property")
-		if propertyKey == "" {
+		if propertyKey == "" && !isEmbedded {
 			propertyKey = fieldType.Name
 		}
 
-		// Build the full key
-		fullKey := propertyKey
-		if prefix != "" {
+		var fullKey string
+		if isEmbedded {
+			// Do not add propertyKey as prefix; use the current prefix
+			fullKey = prefix
+		} else if prefix != "" {
 			fullKey = prefix + "." + propertyKey
+		} else {
+			fullKey = propertyKey
 		}
 
 		// Handle pointer types
@@ -101,10 +108,18 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 
 		switch field.Kind() {
 		case reflect.Struct:
-			// Recursively encode nested structs
-			err := encodeStruct(fullKey, field, props)
-			if err != nil {
-				return err
+			if isEmbedded {
+				// For embedded structs, continue with the same prefix
+				err := encodeStruct(fullKey, field, props)
+				if err != nil {
+					return err
+				}
+			} else {
+				// For nested structs, use the new prefix
+				err := encodeStruct(fullKey, field, props)
+				if err != nil {
+					return err
+				}
 			}
 		case reflect.String:
 			props[fullKey] = field.String()

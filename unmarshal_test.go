@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+// Existing Tests
+
 func TestUnmarshalSimple(t *testing.T) {
 	data := []byte(`
 app.name=TestApp
@@ -227,5 +229,277 @@ count=custom_42
 	// Even though 'count' is valid, the entire Unmarshal should fail
 	if config.Count != 0 {
 		t.Errorf("Expected Count to be 0 due to failure, got '%d'", config.Count)
+	}
+}
+
+func TestUnmarshalWithCustomFloat(t *testing.T) {
+	type FloatConfig struct {
+		Rate CustomFloat `property:"rate"`
+	}
+
+	data := []byte(`
+rate=custom_99.99
+`)
+
+	var config FloatConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	expected := CustomFloat(99.99)
+	if config.Rate != expected {
+		t.Errorf("Expected Rate 99.99, got %.2f", config.Rate)
+	}
+}
+
+func TestUnmarshalWithCustomFloatInvalidPrefix(t *testing.T) {
+	type FloatConfig struct {
+		Rate CustomFloat `property:"rate"`
+	}
+
+	data := []byte(`
+rate=invalid_99.99
+`)
+
+	var config FloatConfig
+	err := Unmarshal(data, &config)
+	if err == nil {
+		t.Fatal("Expected Unmarshal to fail due to invalid prefix in 'rate', but it did not")
+	}
+
+	// Since 'rate' couldn't be set due to type mismatch, it should remain at zero value (0)
+	if config.Rate != 0 {
+		t.Errorf("Expected Rate to be 0 due to failure, got %.2f", config.Rate)
+	}
+}
+
+// Additional Tests to Increase Coverage
+
+func TestUnmarshalWithUintAndFloatFields(t *testing.T) {
+	type NumericConfig struct {
+		MaxUsers  uint    `property:"max.users"`
+		Threshold float64 `property:"threshold"`
+	}
+
+	data := []byte(`
+max.users=1000
+threshold=75.5
+`)
+
+	var config NumericConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.MaxUsers != 1000 {
+		t.Errorf("Expected MaxUsers 1000, got %d", config.MaxUsers)
+	}
+	if config.Threshold != 75.5 {
+		t.Errorf("Expected Threshold 75.5, got %f", config.Threshold)
+	}
+}
+
+func TestUnmarshalWithMultiLevelNestedStruct(t *testing.T) {
+	data := []byte(`
+service.name=AuthService
+service.endpoint.url=https://auth.example.com
+service.endpoint.port=443
+service.endpoint.active=true
+`)
+
+	var config MultiLevelNestedConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Service.Name != "AuthService" {
+		t.Errorf("Expected Service.Name 'AuthService', got '%s'", config.Service.Name)
+	}
+	if config.Service.Endpoint.URL != "https://auth.example.com" {
+		t.Errorf("Expected Service.Endpoint.URL 'https://auth.example.com', got '%s'", config.Service.Endpoint.URL)
+	}
+	if config.Service.Endpoint.Port != 443 {
+		t.Errorf("Expected Service.Endpoint.Port 443, got %d", config.Service.Endpoint.Port)
+	}
+	if config.Service.Endpoint.Active != true {
+		t.Errorf("Expected Service.Endpoint.Active true, got %v", config.Service.Endpoint.Active)
+	}
+}
+
+func TestUnmarshalWithEmbeddedStruct(t *testing.T) {
+	type BaseConfig struct {
+		Version string `property:"version"`
+	}
+
+	type EmbeddedConfig struct {
+		BaseConfig
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+version=1.0.0
+name=EmbeddedService
+`)
+
+	var config EmbeddedConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Version != "1.0.0" {
+		t.Errorf("Expected Version '1.0.0', got '%s'", config.Version)
+	}
+	if config.Name != "EmbeddedService" {
+		t.Errorf("Expected Name 'EmbeddedService', got '%s'", config.Name)
+	}
+}
+
+func TestUnmarshalWithUnsupportedNestedStruct(t *testing.T) {
+	type InnerUnsupported struct {
+		Data []string `property:"data"`
+	}
+
+	type OuterConfig struct {
+		Name  string           `property:"name"`
+		Inner InnerUnsupported `property:"inner"`
+	}
+
+	data := []byte(`
+name=Outer
+inner.data=one,two
+`)
+
+	var config OuterConfig
+	err := Unmarshal(data, &config)
+	if err == nil {
+		t.Fatal("Expected Unmarshal to fail due to unsupported nested struct field type, but it did not")
+	}
+
+	// Since 'inner.data' is unsupported, it should not be set
+	if config.Inner.Data != nil {
+		t.Errorf("Expected Inner.Data to be nil, got %v", config.Inner.Data)
+	}
+}
+
+func TestUnmarshalMissingKeys(t *testing.T) {
+	type CompleteConfig struct {
+		Name    string `property:"name"`
+		Version string `property:"version"`
+	}
+
+	data := []byte(`
+name=IncompleteService
+`)
+
+	var config CompleteConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "IncompleteService" {
+		t.Errorf("Expected Name 'IncompleteService', got '%s'", config.Name)
+	}
+	if config.Version != "" {
+		t.Errorf("Expected Version '', got '%s'", config.Version)
+	}
+}
+
+func TestUnmarshalWithExtraKeys(t *testing.T) {
+	type Config struct {
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+name=ExtraService
+extra.key=extra_value
+another.key=another_value
+`)
+
+	var config Config
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "ExtraService" {
+		t.Errorf("Expected Name 'ExtraService', got '%s'", config.Name)
+	}
+	// Extra keys should be ignored, no error
+}
+
+func TestUnmarshalWithEmptyValues(t *testing.T) {
+	type Config struct {
+		Name    string `property:"name"`
+		Version string `property:"version"`
+	}
+
+	data := []byte(`
+name=
+version=1.2.3
+`)
+
+	var config Config
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "" {
+		t.Errorf("Expected Name '', got '%s'", config.Name)
+	}
+	if config.Version != "1.2.3" {
+		t.Errorf("Expected Version '1.2.3', got '%s'", config.Version)
+	}
+}
+
+func TestUnmarshalWithWhitespace(t *testing.T) {
+	type Config struct {
+		Name string `property:"name"`
+		Port int    `property:"port"`
+	}
+
+	data := []byte(`
+name = WhitespaceService 
+port =  8080  
+`)
+
+	var config Config
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "WhitespaceService" {
+		t.Errorf("Expected Name 'WhitespaceService', got '%s'", config.Name)
+	}
+	if config.Port != 8080 {
+		t.Errorf("Expected Port 8080, got %d", config.Port)
+	}
+}
+
+func TestUnmarshalWithDuplicateKeys(t *testing.T) {
+	type Config struct {
+		Name string `property:"name"`
+	}
+
+	data := []byte(`
+name=First
+name=Second
+`)
+
+	var config Config
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// The last occurrence should take precedence
+	if config.Name != "Second" {
+		t.Errorf("Expected Name 'Second', got '%s'", config.Name)
 	}
 }

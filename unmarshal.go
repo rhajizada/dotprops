@@ -5,6 +5,11 @@ import (
 	"reflect"
 )
 
+// TextUnmarshaler interface as defined in the encoding package
+type TextUnmarshaler interface {
+	UnmarshalText(text []byte) error
+}
+
 // Unmarshal parses the properties data and populates the provided struct.
 func Unmarshal(data []byte, v interface{}) error {
 	val := reflect.ValueOf(v)

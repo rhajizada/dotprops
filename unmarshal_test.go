@@ -4,14 +4,6 @@ import (
 	"testing"
 )
 
-// Define the structs used in tests
-
-type ConfigWithPointer struct {
-	AppName  string          `property:"app.name"`
-	Database *DatabaseConfig `property:"database"`
-}
-
-// TestUnmarshalSimple tests unmarshalling simple flat properties.
 func TestUnmarshalSimple(t *testing.T) {
 	data := []byte(`
 app.name=TestApp
@@ -36,7 +28,6 @@ app.debug=true
 	}
 }
 
-// TestUnmarshalNested tests unmarshalling nested properties.
 func TestUnmarshalNested(t *testing.T) {
 	data := []byte(`
 app.name=MyApp
@@ -69,7 +60,6 @@ database.password=secret
 	}
 }
 
-// TestUnmarshalOptionalFields tests unmarshalling with optional (pointer) fields.
 func TestUnmarshalOptionalFields(t *testing.T) {
 	data := []byte(`
 app.name=MyApp
@@ -95,7 +85,6 @@ app.port=8080
 	}
 }
 
-// TestUnmarshalUnsupportedFieldType tests unmarshalling into an unsupported field type.
 func TestUnmarshalUnsupportedFieldType(t *testing.T) {
 	type UnsupportedConfig struct {
 		Data []string `property:"data"`
@@ -116,7 +105,6 @@ func TestUnmarshalUnsupportedFieldType(t *testing.T) {
 	}
 }
 
-// TestUnmarshalTypeMismatch tests unmarshalling with a type mismatch.
 func TestUnmarshalTypeMismatch(t *testing.T) {
 	data := []byte(`
 app.name=MyApp
@@ -136,7 +124,6 @@ app.debug=not_a_boolean
 	}
 }
 
-// TestUnmarshalPointerNestedStruct tests unmarshalling into a struct with a pointer to a nested struct.
 func TestUnmarshalPointerNestedStruct(t *testing.T) {
 	data := []byte(`
 app.name=PointerApp
@@ -174,7 +161,6 @@ database.password=toor
 	}
 }
 
-// TestUnmarshalNestedTypeMismatch tests unmarshalling with a type mismatch in a nested struct.
 func TestUnmarshalNestedTypeMismatch(t *testing.T) {
 	data := []byte(`
 app.name=MyApp
@@ -191,5 +177,55 @@ database.port=invalid_port
 	// Since 'database.port' couldn't be set due to type mismatch, it should remain at zero value (0)
 	if config.Database.Port != 0 {
 		t.Errorf("Expected Database.Port to be 0, got %d", config.Database.Port)
+	}
+}
+
+// New Tests for TextUnmarshaler Interface
+
+func TestUnmarshalWithTextUnmarshaler(t *testing.T) {
+	type CustomConfig struct {
+		Name  CustomString `property:"name"`
+		Count CustomInt    `property:"count"`
+	}
+
+	data := []byte(`
+name=custom_example
+count=custom_42
+`)
+
+	var config CustomConfig
+	err := Unmarshal(data, &config)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if config.Name != "example" {
+		t.Errorf("Expected Name 'example', got '%s'", config.Name)
+	}
+	if config.Count != 42 {
+		t.Errorf("Expected Count 42, got '%d'", config.Count)
+	}
+}
+
+func TestUnmarshalWithTextUnmarshalerInvalidPrefix(t *testing.T) {
+	type CustomConfig struct {
+		Name  CustomString `property:"name"`
+		Count CustomInt    `property:"count"`
+	}
+
+	data := []byte(`
+name=invalid_example
+count=custom_42
+`)
+
+	var config CustomConfig
+	err := Unmarshal(data, &config)
+	if err == nil {
+		t.Fatal("Expected Unmarshal to fail due to invalid prefix in 'name', but it did not")
+	}
+
+	// Even though 'count' is valid, the entire Unmarshal should fail
+	if config.Count != 0 {
+		t.Errorf("Expected Count to be 0 due to failure, got '%d'", config.Count)
 	}
 }

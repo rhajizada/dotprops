@@ -131,13 +131,24 @@ func setStructFields(structVal reflect.Value, props map[string]interface{}) erro
 				return fmt.Errorf("expected map for nested struct pointer '%s', got %T", fieldType.Name, value)
 			}
 		} else {
+			// Check if the field implements TextUnmarshaler
+			if field.CanInterface() {
+				if unmarshaler, ok := field.Addr().Interface().(TextUnmarshaler); ok {
+					err := unmarshaler.UnmarshalText([]byte(value.(string)))
+					if err != nil {
+						return fmt.Errorf("error unmarshaling field '%s': %v", propertyKey, err)
+					}
+					continue
+				}
+			}
+
 			// Set the field value
 			if valueStr, ok := value.(string); ok {
 				if err := setFieldValue(field, valueStr); err != nil {
-					return fmt.Errorf("error setting field '%s': %v", fieldType.Name, err)
+					return fmt.Errorf("error setting field '%s': %v", propertyKey, err)
 				}
 			} else {
-				return fmt.Errorf("expected string value for field '%s', got %T", fieldType.Name, value)
+				return fmt.Errorf("expected string value for field '%s', got %T", propertyKey, value)
 			}
 		}
 	}

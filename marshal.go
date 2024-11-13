@@ -7,12 +7,29 @@ import (
 	"strings"
 )
 
+// TextMarshaler interface as defined in the encoding package
+type TextMarshaler interface {
+	MarshalText() (text []byte, err error)
+}
+
 // Marshal returns the properties encoding of v.
 // v must be a struct.
+// Marshal returns the properties encoding of v.
+// v must be a struct or a pointer to a struct.
 func Marshal(v interface{}) ([]byte, error) {
 	val := reflect.ValueOf(v)
-	if val.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("marshal expects a struct")
+	if val.Kind() == reflect.Ptr {
+		if val.Elem().Kind() != reflect.Struct {
+			return nil, fmt.Errorf("marshal expects a pointer to a struct")
+		}
+		val = val.Elem()
+	} else if val.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("marshal expects a struct or a pointer to a struct")
+	}
+
+	// Ensure the value is addressable
+	if !val.CanAddr() {
+		return nil, fmt.Errorf("marshal requires an addressable struct to handle TextMarshaler")
 	}
 
 	props := make(map[string]string)
@@ -68,6 +85,18 @@ func encodeStruct(prefix string, val reflect.Value, props map[string]string) err
 				continue // Skip nil pointers
 			}
 			field = field.Elem()
+		}
+
+		// Check if the field implements TextMarshaler
+		if field.CanInterface() {
+			if marshaler, ok := field.Addr().Interface().(TextMarshaler); ok {
+				text, err := marshaler.MarshalText()
+				if err != nil {
+					return fmt.Errorf("error marshaling field '%s': %v", fullKey, err)
+				}
+				props[fullKey] = string(text)
+				continue
+			}
 		}
 
 		switch field.Kind() {

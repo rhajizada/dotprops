@@ -4,32 +4,8 @@ import (
 	"testing"
 )
 
-type SimpleConfig struct {
-	AppName string `property:"app.name"`
-	Port    int    `property:"app.port"`
-	Debug   bool   `property:"app.debug"`
-}
-
-type NestedConfig struct {
-	AppName  string         `property:"app.name"`
-	Database DatabaseConfig `property:"database"`
-}
-
-type DatabaseConfig struct {
-	Host     string `property:"host"`
-	Port     int    `property:"port"`
-	Username string `property:"username"`
-	Password string `property:"password"`
-}
-
-type OptionalConfig struct {
-	AppName *string `property:"app.name"`
-	Port    *int    `property:"app.port"`
-	Debug   *bool   `property:"app.debug"`
-}
-
 func TestMarshalSimple(t *testing.T) {
-	config := SimpleConfig{
+	config := &SimpleConfig{ // Pass a pointer
 		AppName: "TestApp",
 		Port:    3000,
 		Debug:   false,
@@ -48,7 +24,7 @@ func TestMarshalSimple(t *testing.T) {
 }
 
 func TestMarshalNested(t *testing.T) {
-	config := NestedConfig{
+	config := &NestedConfig{ // Pass a pointer
 		AppName: "MyApp",
 		Database: DatabaseConfig{
 			Host:     "localhost",
@@ -73,7 +49,7 @@ func TestMarshalNested(t *testing.T) {
 func TestMarshalOptionalFields(t *testing.T) {
 	appName := "MyApp"
 	debug := true
-	config := OptionalConfig{
+	config := &OptionalConfig{
 		AppName: &appName,
 		Port:    nil, // Optional field not set
 		Debug:   &debug,
@@ -107,7 +83,7 @@ func TestMarshalUnsupportedType(t *testing.T) {
 }
 
 func TestMarshalNilPointer(t *testing.T) {
-	config := OptionalConfig{
+	config := &OptionalConfig{
 		AppName: nil,
 		Port:    nil,
 		Debug:   nil,
@@ -126,7 +102,7 @@ func TestMarshalNilPointer(t *testing.T) {
 func TestMarshalEmptyStruct(t *testing.T) {
 	type EmptyStruct struct{}
 
-	config := EmptyStruct{}
+	config := &EmptyStruct{}
 
 	data, err := Marshal(config)
 	if err != nil {
@@ -144,5 +120,30 @@ func TestMarshalNonStruct(t *testing.T) {
 	_, err := Marshal(nonStruct)
 	if err == nil {
 		t.Fatal("Expected error for non-struct input, got nil")
+	}
+}
+
+// New Tests for TextMarshaler Interface
+
+func TestMarshalWithTextMarshaler(t *testing.T) {
+	type CustomConfig struct {
+		Name  CustomString `property:"name"`
+		Count CustomInt    `property:"count"`
+	}
+
+	config := &CustomConfig{
+		Name:  "example",
+		Count: 42,
+	}
+
+	expected := "count=custom_42\nname=custom_example\n"
+
+	data, err := Marshal(config)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if string(data) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, data)
 	}
 }

@@ -538,8 +538,8 @@ func TestUnmarshalWithPointerEmbeddedStructs(t *testing.T) {
 	if config.BaseConfig == nil {
 		t.Fatal("Expected BaseConfig to be initialized, got nil")
 	}
-	if config.BaseConfig.Version != "3.1.4" {
-		t.Errorf("Expected Version '3.1.4', got '%s'", config.BaseConfig.Version)
+	if config.Version != "3.1.4" {
+		t.Errorf("Expected Version '3.1.4', got '%s'", config.Version)
 	}
 	if config.Name != "PointerEmbeddedService" {
 		t.Errorf("Expected Name 'PointerEmbeddedService', got '%s'", config.Name)

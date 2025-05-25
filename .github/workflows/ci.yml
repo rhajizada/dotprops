@@ -21,30 +21,20 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v6
+      - name: Lint with golangci-lint
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.60
+          args: --timeout 5m
 
-      - name: Install staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-
-      - name: go fmt
+      - name: Check code formatting
         run: |
           if [ -n "$(gofmt -l .)" ]; then
             exit 1
           fi
 
-      - name: go vet
+      - name: Static analysis
         run: go vet ./...
 
-      - name: golangci-lint
-        run: golangci-lint run
-
-      - name: staticcheck
-        run: staticcheck ./...
-
-      - name: tests
+      - name: Run tests
         run: |
           go test -v ./... -coverprofile=coverage.out

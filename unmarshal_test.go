@@ -1,7 +1,9 @@
-package dotprops
+package dotprops_test
 
 import (
 	"testing"
+
+	"github.com/rhajizada/dotprops"
 )
 
 // Existing Tests
@@ -14,7 +16,7 @@ app.debug=true
 `)
 
 	var config SimpleConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -40,7 +42,7 @@ database.password=secret
 `)
 
 	var config NestedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -69,7 +71,7 @@ app.port=8080
 `)
 
 	var config OptionalConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -96,7 +98,7 @@ func TestUnmarshalUnsupportedFieldType(t *testing.T) {
 
 	data := []byte("data=one,two,three")
 
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to unsupported field type, but it did not")
 	}
@@ -115,7 +117,7 @@ app.debug=not_a_boolean
 `)
 
 	var config SimpleConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to invalid boolean value, but it did not")
 	}
@@ -136,7 +138,7 @@ database.password=toor
 `)
 
 	var config ConfigWithPointer
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -171,7 +173,7 @@ database.port=invalid_port
 `)
 
 	var config NestedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to type mismatch in nested struct, but it did not")
 	}
@@ -196,7 +198,7 @@ count=custom_42
 `)
 
 	var config CustomConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -221,7 +223,7 @@ count=custom_42
 `)
 
 	var config CustomConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to invalid prefix in 'name', but it did not")
 	}
@@ -242,7 +244,7 @@ rate=custom_99.99
 `)
 
 	var config FloatConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -263,7 +265,7 @@ rate=invalid_99.99
 `)
 
 	var config FloatConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to invalid prefix in 'rate', but it did not")
 	}
@@ -288,7 +290,7 @@ threshold=75.5
 `)
 
 	var config NumericConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -310,7 +312,7 @@ service.endpoint.active=true
 `)
 
 	var config MultiLevelNestedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -336,6 +338,7 @@ func TestUnmarshalWithEmbeddedStruct(t *testing.T) {
 
 	type EmbeddedConfig struct {
 		BaseConfig
+
 		Name string `property:"name"`
 	}
 
@@ -345,7 +348,7 @@ name=EmbeddedService
 `)
 
 	var config EmbeddedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -374,7 +377,7 @@ inner.data=one,two
 `)
 
 	var config OuterConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to unsupported nested struct field type, but it did not")
 	}
@@ -396,7 +399,7 @@ name=IncompleteService
 `)
 
 	var config CompleteConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -421,7 +424,7 @@ another.key=another_value
 `)
 
 	var config Config
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -444,7 +447,7 @@ version=1.2.3
 `)
 
 	var config Config
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -468,7 +471,7 @@ name=Second
 `)
 
 	var config Config
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -489,6 +492,7 @@ func TestUnmarshalWithMultipleEmbeddedStructs(t *testing.T) {
 	type EmbeddedConfig struct {
 		BaseConfig
 		SecurityConfig
+
 		Name string `property:"name"`
 	}
 
@@ -499,7 +503,7 @@ func TestUnmarshalWithMultipleEmbeddedStructs(t *testing.T) {
 	`)
 
 	var config EmbeddedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -521,6 +525,7 @@ func TestUnmarshalWithPointerEmbeddedStructs(t *testing.T) {
 	}
 	type EmbeddedConfig struct {
 		*BaseConfig
+
 		Name string `property:"name"`
 	}
 
@@ -530,7 +535,7 @@ func TestUnmarshalWithPointerEmbeddedStructs(t *testing.T) {
 	`)
 
 	var config EmbeddedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -558,7 +563,7 @@ func TestUnmarshalWithCustomTextUnmarshaler(t *testing.T) {
 	`)
 
 	var config CustomConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -586,7 +591,7 @@ func TestUnmarshalWithUnsupportedNestedStructTypes(t *testing.T) {
 	`)
 
 	var config OuterConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to unsupported nested struct field type, but it did not")
 	}
@@ -620,7 +625,7 @@ func TestUnmarshalWithMultipleLevelsNestedStructs(t *testing.T) {
 	`)
 
 	var config OuterConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -642,6 +647,7 @@ func TestUnmarshalWithMissingEmbeddedStructFields(t *testing.T) {
 	}
 	type EmbeddedConfig struct {
 		BaseConfig
+
 		Name string `property:"name"`
 	}
 
@@ -650,7 +656,7 @@ func TestUnmarshalWithMissingEmbeddedStructFields(t *testing.T) {
 	`)
 
 	var config EmbeddedConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -675,7 +681,7 @@ func TestUnmarshalWithExtraProperties(t *testing.T) {
 	`)
 
 	var config Config
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -698,7 +704,7 @@ func TestUnmarshalWithWhitespace(t *testing.T) {
 	`)
 
 	var config Config
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -711,7 +717,7 @@ func TestUnmarshalWithWhitespace(t *testing.T) {
 	}
 }
 
-// TestUnmarshalWithPropUnmarshaler tests unmarshalling with PropUnmarshaler interface
+// TestUnmarshalWithPropUnmarshaler tests unmarshalling with PropUnmarshaler interface.
 func TestUnmarshalWithPropUnmarshaler(t *testing.T) {
 	type CustomConfig struct {
 		CustomField CustomPropUnmarshaller `property:"custom.field"`
@@ -724,7 +730,7 @@ name=TestService
 `)
 
 	var config CustomConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -740,7 +746,7 @@ name=TestService
 	}
 }
 
-// TestUnmarshalWithPropUnmarshalerError tests unmarshalling when PropUnmarshaler returns an error
+// TestUnmarshalWithPropUnmarshalerError tests unmarshalling when PropUnmarshaler returns an error.
 func TestUnmarshalWithPropUnmarshalerError(t *testing.T) {
 	data := []byte(`
 faulty.field=invalid_value
@@ -748,7 +754,7 @@ name=FaultyService
 `)
 
 	var config FaultyConfig
-	err := Unmarshal(data, &config)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
 		t.Fatal("Expected Unmarshal to fail due to PropUnmarshaler error, but it did not")
 	}

@@ -1,8 +1,10 @@
-package dotprops
+package dotprops_test
 
 import (
 	"errors"
 	"testing"
+
+	"github.com/rhajizada/dotprops"
 )
 
 func TestMarshalSimple(t *testing.T) {
@@ -14,7 +16,7 @@ func TestMarshalSimple(t *testing.T) {
 
 	expected := "app.debug=false\napp.name=TestApp\napp.port=3000\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -37,7 +39,7 @@ func TestMarshalNested(t *testing.T) {
 
 	expected := "app.name=MyApp\ndatabase.host=localhost\ndatabase.password=secret\ndatabase.port=5432\ndatabase.username=admin\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -58,7 +60,7 @@ func TestMarshalOptionalFields(t *testing.T) {
 
 	expected := "app.debug=true\napp.name=MyApp\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -77,7 +79,7 @@ func TestMarshalUnsupportedType(t *testing.T) {
 		Data: []string{"one", "two", "three"},
 	}
 
-	_, err := Marshal(config)
+	_, err := dotprops.Marshal(config)
 	if err == nil {
 		t.Fatal("Expected error for unsupported type, got nil")
 	}
@@ -90,7 +92,7 @@ func TestMarshalNilPointer(t *testing.T) {
 		Debug:   nil,
 	}
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -105,7 +107,7 @@ func TestMarshalEmptyStruct(t *testing.T) {
 
 	config := &EmptyStruct{}
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -118,7 +120,7 @@ func TestMarshalEmptyStruct(t *testing.T) {
 func TestMarshalNonStruct(t *testing.T) {
 	nonStruct := "I am not a struct"
 
-	_, err := Marshal(nonStruct)
+	_, err := dotprops.Marshal(nonStruct)
 	if err == nil {
 		t.Fatal("Expected error for non-struct input, got nil")
 	}
@@ -139,7 +141,7 @@ func TestMarshalWithTextMarshaler(t *testing.T) {
 
 	expected := "count=custom_42\nname=custom_example\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -151,7 +153,7 @@ func TestMarshalWithTextMarshaler(t *testing.T) {
 
 type FaultyCustomString string
 
-// Implement TextMarshaler that returns an error
+// Implement TextMarshaler that returns an error.
 func (fcs FaultyCustomString) MarshalText() ([]byte, error) {
 	return nil, errors.New("marshal error")
 }
@@ -164,7 +166,7 @@ func TestMarshalWithTextMarshalerError(t *testing.T) {
 	config := &ErrorConfig{
 		Name: "faulty",
 	}
-	_, err := Marshal(config)
+	_, err := dotprops.Marshal(config)
 	if err == nil {
 		t.Fatal("Expected Marshal to fail due to TextMarshaler error, but it did not")
 	}
@@ -185,7 +187,7 @@ func TestMarshalWithUintAndFloatFields(t *testing.T) {
 
 	expected := "max.users=1000\nthreshold=75.500000\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -209,7 +211,7 @@ func TestMarshalWithMultiLevelNestedStruct(t *testing.T) {
 
 	expected := "service.endpoint.active=true\nservice.endpoint.port=443\nservice.endpoint.url=https://auth.example.com\nservice.name=AuthService\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -226,6 +228,7 @@ func TestMarshalWithEmbeddedStruct(t *testing.T) {
 
 	type EmbeddedConfig struct {
 		BaseConfig
+
 		Name string `property:"name"`
 	}
 
@@ -238,7 +241,7 @@ func TestMarshalWithEmbeddedStruct(t *testing.T) {
 
 	expected := "name=EmbeddedService\nversion=1.0.0\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -265,7 +268,7 @@ func TestMarshalWithUnsupportedNestedStruct(t *testing.T) {
 		},
 	}
 
-	_, err := Marshal(config)
+	_, err := dotprops.Marshal(config)
 	if err == nil {
 		t.Fatal("Expected Marshal to fail due to unsupported nested struct field type, but it did not")
 	}
@@ -281,6 +284,7 @@ func TestMarshalWithMultipleEmbeddedStructs(t *testing.T) {
 	type EmbeddedConfig struct {
 		BaseConfig
 		SecurityConfig
+
 		Name string `property:"name"`
 	}
 
@@ -296,7 +300,7 @@ func TestMarshalWithMultipleEmbeddedStructs(t *testing.T) {
 
 	expected := "enabled=true\nname=MultiEmbeddedService\nversion=2.0.0\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -312,6 +316,7 @@ func TestMarshalWithPointerEmbeddedStructs(t *testing.T) {
 	}
 	type EmbeddedConfig struct {
 		*BaseConfig
+
 		Name string `property:"name"`
 	}
 
@@ -324,7 +329,7 @@ func TestMarshalWithPointerEmbeddedStructs(t *testing.T) {
 
 	expected := "name=PointerEmbeddedService\nversion=3.1.4\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -346,7 +351,7 @@ func TestMarshalWithCustomTextMarshaler(t *testing.T) {
 
 	expected := "count=custom_100\nname=custom_example\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -372,7 +377,7 @@ func TestMarshalWithUnsupportedNestedStructTypes(t *testing.T) {
 		},
 	}
 
-	_, err := Marshal(config)
+	_, err := dotprops.Marshal(config)
 	if err == nil {
 		t.Fatal("Expected Marshal to fail due to unsupported nested struct field type, but it did not")
 	}
@@ -408,7 +413,7 @@ func TestMarshalWithMultipleLevelsNestedStructs(t *testing.T) {
 
 	expected := "active=true\nlevel1.level2.level3.key=deep_value\nname=DeepNestedService\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -424,6 +429,7 @@ func TestMarshalWithMissingEmbeddedStructFields(t *testing.T) {
 	}
 	type EmbeddedConfig struct {
 		BaseConfig
+
 		Name string `property:"name"`
 	}
 
@@ -436,7 +442,7 @@ func TestMarshalWithMissingEmbeddedStructFields(t *testing.T) {
 
 	expected := "name=EmbeddedService\nversion=\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -462,7 +468,7 @@ func TestMarshalWithExtraProperties(t *testing.T) {
 
 	expected := "age=45\nname=ExtraService\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -472,7 +478,7 @@ func TestMarshalWithExtraProperties(t *testing.T) {
 	}
 }
 
-// TestMarshalWithPropMarshaler tests marshalling with PropMarshaler interface
+// TestMarshalWithPropMarshaler tests marshalling with PropMarshaler interface.
 func TestMarshalWithPropMarshaler(t *testing.T) {
 	type CustomConfig struct {
 		CustomField CustomPropMarshaller `property:"custom.field"`
@@ -489,7 +495,7 @@ func TestMarshalWithPropMarshaler(t *testing.T) {
 
 	expected := "custom.field=value1_42\nname=TestService\n"
 
-	data, err := Marshal(config)
+	data, err := dotprops.Marshal(config)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -499,15 +505,14 @@ func TestMarshalWithPropMarshaler(t *testing.T) {
 	}
 }
 
-// TestMarshalWithPropMarshalerError tests marshalling when PropMarshaler returns an error
+// TestMarshalWithPropMarshalerError tests marshalling when PropMarshaler returns an error.
 func TestMarshalWithPropMarshalerError(t *testing.T) {
-
 	config := &FaultyConfig{
 		FaultyField: FaultyPropMarshaller{},
 		Name:        "FaultyService",
 	}
 
-	_, err := Marshal(config)
+	_, err := dotprops.Marshal(config)
 	if err == nil {
 		t.Fatal("Expected Marshal to fail due to PropMarshaler error, but it did not")
 	}

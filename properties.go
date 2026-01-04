@@ -10,8 +10,8 @@ import (
 )
 
 // parseProperties reads properties data and returns a map of key-value pairs.
-func parseProperties(data []byte) (map[string]interface{}, error) {
-	props := make(map[string]interface{})
+func parseProperties(data []byte) (map[string]any, error) {
+	props := make(map[string]any)
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	pattern := regexp.MustCompile("^([^#][^=]*)=(.*)")
 
@@ -36,10 +36,10 @@ func parseProperties(data []byte) (map[string]interface{}, error) {
 			for i := 0; i < len(keyList)-1; i++ {
 				k := keyList[i]
 				if _, ok := current[k]; !ok {
-					current[k] = make(map[string]interface{})
+					current[k] = make(map[string]any)
 				}
 				// Type assertion to navigate deeper into the nested map
-				if nextMap, ok := current[k].(map[string]interface{}); ok {
+				if nextMap, ok := current[k].(map[string]any); ok {
 					current = nextMap
 				} else {
 					// Handle type mismatch if the existing key is not a map
@@ -64,12 +64,12 @@ func parseProperties(data []byte) (map[string]interface{}, error) {
 }
 
 // getNestedProperty traverses the nested map to retrieve the value for a dot-separated key.
-func getNestedProperty(props map[string]interface{}, key string) (interface{}, bool) {
+func getNestedProperty(props map[string]any, key string) (any, bool) {
 	parts := strings.Split(key, ".")
-	var current interface{} = props
+	var current any = props
 	for _, part := range parts {
 		switch currMap := current.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			var ok bool
 			current, ok = currMap[part]
 			if !ok {
@@ -83,7 +83,7 @@ func getNestedProperty(props map[string]interface{}, key string) (interface{}, b
 }
 
 // setStructFields sets the fields of the struct based on the provided properties.
-func setStructFields(structVal reflect.Value, props map[string]interface{}) error {
+func setStructFields(structVal reflect.Value, props map[string]any) error {
 	structType := structVal.Type()
 
 	for i := 0; i < structVal.NumField(); i++ {
@@ -95,108 +95,176 @@ func setStructFields(structVal reflect.Value, props map[string]interface{}) erro
 			continue
 		}
 
-		// Check if the field is embedded (anonymous)
-		if fieldType.Anonymous {
-			// Handle embedded struct: pass the same props map
-			if field.Kind() == reflect.Struct {
-				err := setStructFields(field, props)
-				if err != nil {
-					return err
-				}
-			} else if field.Kind() == reflect.Ptr && field.Type().Elem().Kind() == reflect.Struct {
-				if field.IsNil() {
-					field.Set(reflect.New(field.Type().Elem()))
-				}
-				err := setStructFields(field.Elem(), props)
-				if err != nil {
-					return err
-				}
-			}
-			continue
-		}
-
-		// Get the property key from the struct tag or use the field name
-		propertyKey := fieldType.Tag.Get("property")
-		if propertyKey == "" {
-			propertyKey = fieldType.Name
-		}
-
-		// Retrieve the value using the helper function
-		value, ok := getNestedProperty(props, propertyKey)
-		if !ok {
-			continue // Property not found in data
-		}
-
-		// Check if the field implements PropUnmarshaler
-		if pu, ok := field.Addr().Interface().(PropUnmarshaller); ok {
-			key, valStr, err := extractKeyValue(propertyKey, value)
-			if err != nil {
-				return fmt.Errorf("error extracting key-value for field '%s': %v", propertyKey, err)
-			}
-			err = pu.UnmarshalProp(key, valStr)
-			if err != nil {
-				return fmt.Errorf("error unmarshaling field '%s': %v", propertyKey, err)
-			}
-			continue
-		}
-
-		// Handle nested structs
-		if field.Kind() == reflect.Struct {
-			// The properties should be nested under propertyKey
-			if subProps, ok := value.(map[string]interface{}); ok {
-				err := setStructFields(field, subProps)
-				if err != nil {
-					return err
-				}
-			} else {
-				return fmt.Errorf("expected map for nested struct field '%s', got %T", propertyKey, value)
-			}
-			continue
-		}
-
-		// Handle pointer to struct
-		if field.Kind() == reflect.Ptr && field.Type().Elem().Kind() == reflect.Struct {
-			if valueMap, ok := value.(map[string]interface{}); ok {
-				if field.IsNil() {
-					field.Set(reflect.New(field.Type().Elem()))
-				}
-				err := setStructFields(field.Elem(), valueMap)
-				if err != nil {
-					return err
-				}
-			} else {
-				return fmt.Errorf("expected map for nested struct pointer field '%s', got %T", propertyKey, value)
-			}
-			continue
-		}
-
-		// Check if the field implements TextUnmarshaler
-		if field.CanInterface() {
-			if unmarshaler, ok := field.Addr().Interface().(TextUnmarshaler); ok {
-				err := unmarshaler.UnmarshalText([]byte(value.(string)))
-				if err != nil {
-					return fmt.Errorf("error unmarshaling field '%s': %v", propertyKey, err)
-				}
-				continue
-			}
-		}
-
-		// Set the field value
-		if valueStr, ok := value.(string); ok {
-			err := setFieldValue(field, valueStr)
-			if err != nil {
-				return fmt.Errorf("error setting field '%s': %v", propertyKey, err)
-			}
-		} else {
-			return fmt.Errorf("expected string value for field '%s', got %T", propertyKey, value)
+		if err := setStructField(field, fieldType, props); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-// Helper function to extract key-value pair for PropUnmarshaler
-func extractKeyValue(propertyKey string, value interface{}) (string, string, error) {
+var (
+	propUnmarshallerType = reflect.TypeOf((*PropUnmarshaller)(nil)).Elem()
+	textUnmarshallerType = reflect.TypeOf((*TextUnmarshaler)(nil)).Elem()
+)
+
+func setStructField(field reflect.Value, fieldType reflect.StructField, props map[string]any) error {
+	if fieldType.Anonymous {
+		return setEmbeddedStructField(field, props)
+	}
+
+	propertyKey := fieldType.Tag.Get("property")
+	if propertyKey == "" {
+		propertyKey = fieldType.Name
+	}
+
+	value, ok := getNestedProperty(props, propertyKey)
+	if !ok {
+		return nil
+	}
+
+	return applyFieldValue(field, propertyKey, value)
+}
+
+func setEmbeddedStructField(field reflect.Value, props map[string]any) error {
+	switch field.Kind() {
+	case reflect.Struct:
+		return setStructFields(field, props)
+	case reflect.Ptr:
+		if field.Type().Elem().Kind() != reflect.Struct {
+			return nil
+		}
+		if field.IsNil() {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+		return setStructFields(field.Elem(), props)
+	default:
+		return nil
+	}
+}
+
+func applyFieldValue(field reflect.Value, propertyKey string, value any) error {
+	if handled, err := applyPropUnmarshaller(field, propertyKey, value); handled {
+		return err
+	}
+	if handled, err := applyNestedStruct(field, propertyKey, value); handled {
+		return err
+	}
+	if handled, err := applyTextUnmarshaller(field, propertyKey, value); handled {
+		return err
+	}
+
+	valueStr, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("expected string value for field '%s', got %T", propertyKey, value)
+	}
+
+	if err := setFieldValue(field, valueStr); err != nil {
+		return fmt.Errorf("error setting field '%s': %w", propertyKey, err)
+	}
+	return nil
+}
+
+func applyPropUnmarshaller(field reflect.Value, propertyKey string, value any) (bool, error) {
+	target, ok := interfaceValue(field, propUnmarshallerType)
+	if !ok {
+		return false, nil
+	}
+
+	unmarshaler, ok := target.(PropUnmarshaller)
+	if !ok {
+		return false, nil
+	}
+
+	key, valStr, err := extractKeyValue(propertyKey, value)
+	if err != nil {
+		return true, fmt.Errorf("error extracting key-value for field '%s': %w", propertyKey, err)
+	}
+
+	if err := unmarshaler.UnmarshalProp(key, valStr); err != nil {
+		return true, fmt.Errorf("error unmarshaling field '%s': %w", propertyKey, err)
+	}
+	return true, nil
+}
+
+func applyNestedStruct(field reflect.Value, propertyKey string, value any) (bool, error) {
+	switch field.Kind() {
+	case reflect.Struct:
+		subProps, ok := value.(map[string]any)
+		if !ok {
+			return true, fmt.Errorf("expected map for nested struct field '%s', got %T", propertyKey, value)
+		}
+		return true, setStructFields(field, subProps)
+	case reflect.Ptr:
+		if field.Type().Elem().Kind() != reflect.Struct {
+			return false, nil
+		}
+		subProps, ok := value.(map[string]any)
+		if !ok {
+			return true, fmt.Errorf("expected map for nested struct pointer field '%s', got %T", propertyKey, value)
+		}
+		if field.IsNil() {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+		return true, setStructFields(field.Elem(), subProps)
+	default:
+		return false, nil
+	}
+}
+
+func applyTextUnmarshaller(field reflect.Value, propertyKey string, value any) (bool, error) {
+	target, ok := interfaceValue(field, textUnmarshallerType)
+	if !ok {
+		return false, nil
+	}
+
+	valueStr, ok := value.(string)
+	if !ok {
+		return true, fmt.Errorf("expected string value for field '%s', got %T", propertyKey, value)
+	}
+
+	unmarshaler, ok := target.(TextUnmarshaler)
+	if !ok {
+		return false, nil
+	}
+
+	if err := unmarshaler.UnmarshalText([]byte(valueStr)); err != nil {
+		return true, fmt.Errorf("error unmarshaling field '%s': %w", propertyKey, err)
+	}
+	return true, nil
+}
+
+func interfaceValue(field reflect.Value, iface reflect.Type) (any, bool) {
+	if !field.IsValid() {
+		return nil, false
+	}
+
+	if field.Kind() == reflect.Ptr {
+		if !field.Type().Implements(iface) {
+			return nil, false
+		}
+		if field.IsNil() {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+		if field.CanInterface() {
+			return field.Interface(), true
+		}
+		return nil, false
+	}
+
+	if field.Type().Implements(iface) && field.CanInterface() {
+		return field.Interface(), true
+	}
+
+	if field.CanAddr() && field.Addr().Type().Implements(iface) {
+		return field.Addr().Interface(), true
+	}
+
+	return nil, false
+}
+
+// Helper function to extract key-value pair for PropUnmarshaler.
+func extractKeyValue(propertyKey string, value any) (string, string, error) {
 	valueStr, ok := value.(string)
 	if !ok {
 		return "", "", fmt.Errorf("expected string value for property '%s', got %T", propertyKey, value)
@@ -244,7 +312,24 @@ func setFieldValue(field reflect.Value, valueStr string) error {
 			return fmt.Errorf("invalid float value '%s' for field", valueStr)
 		}
 		field.SetFloat(floatVal)
-	default:
+	case reflect.Uintptr:
+		uintVal, err := strconv.ParseUint(valueStr, 10, field.Type().Bits())
+		if err != nil {
+			return fmt.Errorf("invalid unsigned integer value '%s' for field", valueStr)
+		}
+		field.SetUint(uintVal)
+	case reflect.Invalid,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Array,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Interface,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.Slice,
+		reflect.Struct,
+		reflect.UnsafePointer:
 		return fmt.Errorf("unsupported field type: %s", field.Kind())
 	}
 	return nil

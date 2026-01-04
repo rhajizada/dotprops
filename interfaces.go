@@ -1,11 +1,11 @@
 package dotprops
 
-// TextMarshaler interface as defined in the encoding package
+// TextMarshaler interface as defined in the encoding package.
 type TextMarshaler interface {
 	MarshalText() (text []byte, err error)
 }
 
-// TextUnmarshaler interface as defined in the encoding package
+// TextUnmarshaler interface as defined in the encoding package.
 type TextUnmarshaler interface {
 	UnmarshalText(text []byte) error
 }

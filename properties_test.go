@@ -1,11 +1,12 @@
-package dotprops
+package dotprops_test
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/rhajizada/dotprops"
 )
 
-// TestParseProperties tests the parseProperties function to ensure it correctly parses the properties data.
+// TestParseProperties exercises the parser through Unmarshal with nested keys.
 func TestParseProperties(t *testing.T) {
 	data := []byte(`
 # This is a comment
@@ -16,26 +17,37 @@ key3.subkey1=value3
 key3.subkey2=value4
 `)
 
-	expected := map[string]interface{}{
-		"key1": "value1",
-		"key2": "value2",
-		"key3": map[string]interface{}{
-			"subkey1": "value3",
-			"subkey2": "value4",
-		},
+	type Key3Config struct {
+		Subkey1 string `property:"subkey1"`
+		Subkey2 string `property:"subkey2"`
+	}
+	type Config struct {
+		Key1 string     `property:"key1"`
+		Key2 string     `property:"key2"`
+		Key3 Key3Config `property:"key3"`
 	}
 
-	props, err := parseProperties(data)
+	var config Config
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("parseProperties failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
-	if !reflect.DeepEqual(props, expected) {
-		t.Errorf("Expected props to be %+v, got %+v", expected, props)
+	if config.Key1 != "value1" {
+		t.Errorf("Expected Key1 'value1', got '%s'", config.Key1)
+	}
+	if config.Key2 != "value2" {
+		t.Errorf("Expected Key2 'value2', got '%s'", config.Key2)
+	}
+	if config.Key3.Subkey1 != "value3" {
+		t.Errorf("Expected Key3.Subkey1 'value3', got '%s'", config.Key3.Subkey1)
+	}
+	if config.Key3.Subkey2 != "value4" {
+		t.Errorf("Expected Key3.Subkey2 'value4', got '%s'", config.Key3.Subkey2)
 	}
 }
 
-// TestParsePropertiesInvalidLine ensures that invalid lines are ignored or handled appropriately.
+// TestParsePropertiesInvalidLine ensures invalid lines are ignored.
 func TestParsePropertiesInvalidLine(t *testing.T) {
 	data := []byte(`
 key1=value1
@@ -43,37 +55,38 @@ invalid_line_without_equals
 key2=value2
 `)
 
-	expected := map[string]interface{}{
-		"key1": "value1",
-		"key2": "value2",
+	type Config struct {
+		Key1 string `property:"key1"`
+		Key2 string `property:"key2"`
 	}
 
-	props, err := parseProperties(data)
+	var config Config
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("parseProperties failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
-	if !reflect.DeepEqual(props, expected) {
-		t.Errorf("Expected props to be %+v, got %+v", expected, props)
+	if config.Key1 != "value1" {
+		t.Errorf("Expected Key1 'value1', got '%s'", config.Key1)
+	}
+	if config.Key2 != "value2" {
+		t.Errorf("Expected Key2 'value2', got '%s'", config.Key2)
 	}
 }
 
-// TestSetStructFields_Simple tests setStructFields with a simple struct and correct property values.
+// TestSetStructFields_Simple tests Unmarshal with a simple struct and correct property values.
 func TestSetStructFields_Simple(t *testing.T) {
 	type Config struct {
 		Name string `property:"name"`
 		Age  int    `property:"age"`
 	}
 
-	props := map[string]interface{}{
-		"name": "Alice",
-		"age":  "30",
-	}
+	data := []byte("name=Alice\nage=30\n")
 
 	var config Config
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("setStructFields failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
 	if config.Name != "Alice" {
@@ -84,7 +97,7 @@ func TestSetStructFields_Simple(t *testing.T) {
 	}
 }
 
-// TestSetStructFields_Nested tests setStructFields with a nested struct and correct property values.
+// TestSetStructFields_Nested tests Unmarshal with nested structs and correct property values.
 func TestSetStructFields_Nested(t *testing.T) {
 	type InnerConfig struct {
 		SubName string `property:"sub.name"`
@@ -96,20 +109,12 @@ func TestSetStructFields_Nested(t *testing.T) {
 		Inner InnerConfig `property:"inner"`
 	}
 
-	props := map[string]interface{}{
-		"name": "Outer",
-		"inner": map[string]interface{}{
-			"sub": map[string]interface{}{
-				"name": "Inner",
-			},
-			"value": "100",
-		},
-	}
+	data := []byte("name=Outer\ninner.sub.name=Inner\ninner.value=100\n")
 
 	var config OuterConfig
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("setStructFields failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
 	if config.Name != "Outer" {
@@ -123,7 +128,7 @@ func TestSetStructFields_Nested(t *testing.T) {
 	}
 }
 
-// TestSetStructFields_PointerNested tests setStructFields with a pointer to a nested struct.
+// TestSetStructFields_PointerNested tests Unmarshal with a pointer to a nested struct.
 func TestSetStructFields_PointerNested(t *testing.T) {
 	type InnerConfig struct {
 		SubName string `property:"sub.name"`
@@ -135,20 +140,12 @@ func TestSetStructFields_PointerNested(t *testing.T) {
 		Inner *InnerConfig `property:"inner"`
 	}
 
-	props := map[string]interface{}{
-		"name": "Outer",
-		"inner": map[string]interface{}{
-			"sub": map[string]interface{}{
-				"name": "Inner",
-			},
-			"value": "100",
-		},
-	}
+	data := []byte("name=Outer\ninner.sub.name=Inner\ninner.value=100\n")
 
 	var config OuterConfig
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("setStructFields failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
 	if config.Name != "Outer" {
@@ -165,48 +162,42 @@ func TestSetStructFields_PointerNested(t *testing.T) {
 	}
 }
 
-// TestSetStructFields_TypeMismatch tests setStructFields with a type mismatch.
+// TestSetStructFields_TypeMismatch tests Unmarshal with a type mismatch.
 func TestSetStructFields_TypeMismatch(t *testing.T) {
 	type Config struct {
 		Name string `property:"name"`
 		Age  int    `property:"age"`
 	}
 
-	props := map[string]interface{}{
-		"name": "Bob",
-		"age":  "not_an_int",
-	}
+	data := []byte("name=Bob\nage=not_an_int\n")
 
 	var config Config
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
-		t.Fatal("Expected setStructFields to fail due to type mismatch, but it did not")
+		t.Fatal("Expected Unmarshal to fail due to type mismatch, but it did not")
 	}
 
-	// Since 'age' couldn't be set due to type mismatch, it should remain at zero value
 	if config.Age != 0 {
 		t.Errorf("Expected Age to be 0, got %d", config.Age)
 	}
 }
 
-// TestSetStructFields_UnsupportedType tests setStructFields with an unsupported field type.
+// TestSetStructFields_UnsupportedType tests Unmarshal with an unsupported field type.
 func TestSetStructFields_UnsupportedType(t *testing.T) {
 	type Config struct {
 		Channel chan int `property:"channel"`
 	}
 
-	props := map[string]interface{}{
-		"channel": "data",
-	}
+	data := []byte("channel=data\n")
 
 	var config Config
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
-		t.Fatal("Expected setStructFields to fail due to unsupported field type, but it did not")
+		t.Fatal("Expected Unmarshal to fail due to unsupported field type, but it did not")
 	}
 }
 
-// TestSetStructFields_UnsupportedNestedType tests setStructFields with an unsupported nested field type.
+// TestSetStructFields_UnsupportedNestedType tests Unmarshal with an unsupported nested field type.
 func TestSetStructFields_UnsupportedNestedType(t *testing.T) {
 	type InnerConfig struct {
 		Channel chan int `property:"channel"`
@@ -217,21 +208,16 @@ func TestSetStructFields_UnsupportedNestedType(t *testing.T) {
 		Inner InnerConfig `property:"inner"`
 	}
 
-	props := map[string]interface{}{
-		"name": "Outer",
-		"inner": map[string]interface{}{
-			"channel": "data",
-		},
-	}
+	data := []byte("name=Outer\ninner.channel=data\n")
 
 	var config OuterConfig
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err == nil {
-		t.Fatal("Expected setStructFields to fail due to unsupported nested field type, but it did not")
+		t.Fatal("Expected Unmarshal to fail due to unsupported nested field type, but it did not")
 	}
 }
 
-// TestSetStructFields_PartialData tests setStructFields with partial data (missing some fields).
+// TestSetStructFields_PartialData tests Unmarshal with partial data (missing some fields).
 func TestSetStructFields_PartialData(t *testing.T) {
 	type Config struct {
 		Name    string `property:"name"`
@@ -239,16 +225,12 @@ func TestSetStructFields_PartialData(t *testing.T) {
 		Address string `property:"address"`
 	}
 
-	props := map[string]interface{}{
-		"name": "Charlie",
-		"age":  "25",
-		// 'address' is missing
-	}
+	data := []byte("name=Charlie\nage=25\n")
 
 	var config Config
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("setStructFields failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
 	if config.Name != "Charlie" {
@@ -262,23 +244,18 @@ func TestSetStructFields_PartialData(t *testing.T) {
 	}
 }
 
-// TestSetStructFields_ExtraProperties tests setStructFields with extra properties not present in the struct.
+// TestSetStructFields_ExtraProperties tests Unmarshal with extra properties not present in the struct.
 func TestSetStructFields_ExtraProperties(t *testing.T) {
 	type Config struct {
 		Name string `property:"name"`
 	}
 
-	props := map[string]interface{}{
-		"name":      "Dana",
-		"unknown":   "value",
-		"another":   "value",
-		"extra.key": "extra_value",
-	}
+	data := []byte("name=Dana\nunknown=value\nanother=value\nextra.key=extra_value\n")
 
 	var config Config
-	err := setStructFields(reflect.ValueOf(&config).Elem(), props)
+	err := dotprops.Unmarshal(data, &config)
 	if err != nil {
-		t.Fatalf("setStructFields failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
 	if config.Name != "Dana" {

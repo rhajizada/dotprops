@@ -673,3 +673,8 @@ custom.field=value1_42
     fmt.Printf("CustomField: %+v\n", config.CustomField)
 }
 ```
+
+## Contribute
+
+- Issues and forks are welcome.
+- PRs are welcome; require maintainer review before merge.

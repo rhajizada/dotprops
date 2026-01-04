@@ -5,7 +5,8 @@ import (
 	"reflect"
 )
 
-func Unmarshal(data []byte, v interface{}) error {
+// Unmarshal parses properties data into the struct pointed to by v.
+func Unmarshal(data []byte, v any) error {
 	val := reflect.ValueOf(v)
 
 	// Ensure v is a pointer to a struct

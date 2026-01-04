@@ -1,9 +1,10 @@
 # dotprops
 
-![ci](https://github.com/rhajizada/dotprops/actions/workflows/ci.yml/badge.svg)
 ![Go](https://img.shields.io/badge/Go-1.22-blue.svg)
+[![Go Reference](https://pkg.go.dev/badge/github.com/rhajizada/dotprops.svg)](https://pkg.go.dev/github.com/rhajizada/dotprops)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
-
+![ci](https://github.com/rhajizada/dotprops/actions/workflows/ci.yml/badge.svg)
+![coverage](https://signum.rhajizada.dev/api/badges/5e139b14-f6ee-4dd4-ae50-861fb2a328bd)
 
 dotprops is a `Go` package for marshalling and unmarshalling `Java` `.properties`
 files into structs, similar to how the `encoding/json` package works.
@@ -673,3 +674,7 @@ custom.field=value1_42
 }
 ```
 
+## Contribute
+
+- Issues and forks are welcome.
+- PRs are welcome; require maintainer review before merge.

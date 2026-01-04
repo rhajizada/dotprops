@@ -1,8 +1,9 @@
-export PATH := $(HOME)/go/bin:$(PATH)
+.DEFAULT_GOAL := help
+PKGS ?= ./...
 
 .PHONY: all
-## all: Default target - runs fmt, vet, lint, staticcheck, and test.
-all: fmt vet lint staticcheck test
+## all: Runs fmt, vet, lint, staticcheck, test, and coverage.
+all: fmt vet lint staticcheck test coverage
 
 .PHONY: fmt
 ## fmt: Formats the code using go fmt.
@@ -35,12 +36,23 @@ staticcheck:
 .PHONY: test
 ## test: Runs all tests using go test.
 test:
-	@go test ./...
+	@go test $(PKGS)
+
+.PHONY: coverage
+## coverage: Generate test coverage report (uses gotestsum if available).
+coverage:
+	@if ! [ -x "$$(which gotestsum)" ]; then \
+		echo "gotestsum not found, installing..."; \
+		go install gotest.tools/gotestsum@latest; \
+	fi
+	@gotestsum -- -coverprofile=coverage.out $(PKGS)
+	@go tool cover -func=coverage.out
 
 .PHONY: help
-## help: Show help message
+## help: Show help message.
 help: Makefile
 	@echo
 	@echo " Available targets:"
 	@echo
 	@sed -n 's/^## //p' $< | column -t -s ':' | sed -e 's/^/  /'
+

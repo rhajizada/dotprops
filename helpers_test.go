@@ -1,4 +1,4 @@
-package dotprops
+package dotprops_test
 
 import (
 	"errors"
@@ -55,11 +55,11 @@ type EndpointConfig struct {
 
 // Custom Types Implementing Interfaces for Testing
 
-// CustomString implements TextMarshaler and TextUnmarshaler
+// CustomString implements TextMarshaler and TextUnmarshaler.
 type CustomString string
 
 func (cs CustomString) MarshalText() ([]byte, error) {
-	return []byte(fmt.Sprintf("custom_%s", cs)), nil
+	return fmt.Appendf(nil, "custom_%s", cs), nil
 }
 
 func (cs *CustomString) UnmarshalText(text []byte) error {
@@ -70,11 +70,11 @@ func (cs *CustomString) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// CustomInt implements TextMarshaler and TextUnmarshaler
+// CustomInt implements TextMarshaler and TextUnmarshaler.
 type CustomInt int
 
 func (ci CustomInt) MarshalText() ([]byte, error) {
-	return []byte(fmt.Sprintf("custom_%d", ci)), nil
+	return fmt.Appendf(nil, "custom_%d", ci), nil
 }
 
 func (ci *CustomInt) UnmarshalText(text []byte) error {
@@ -90,11 +90,11 @@ func (ci *CustomInt) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// CustomFloat implements TextMarshaler and TextUnmarshaler
+// CustomFloat implements TextMarshaler and TextUnmarshaler.
 type CustomFloat float64
 
 func (cf CustomFloat) MarshalText() ([]byte, error) {
-	return []byte(fmt.Sprintf("custom_%.2f", cf)), nil
+	return fmt.Appendf(nil, "custom_%.2f", cf), nil
 }
 
 func (cf *CustomFloat) UnmarshalText(text []byte) error {
@@ -121,7 +121,7 @@ func (c CustomPropMarshaller) MarshalProp() (string, string, error) {
 	return key, value, nil
 }
 
-// CustomPropUnmarshaller implements PropUnmarshaler
+// CustomPropUnmarshaller implements PropUnmarshaler.
 type CustomPropUnmarshaller struct {
 	Field1 string
 	Field2 int
@@ -160,6 +160,6 @@ type FaultyPropUnmarshaller struct {
 	Field2 int
 }
 
-func (f *FaultyPropUnmarshaller) UnmarshalProp(key string, value string) error {
+func (f *FaultyPropUnmarshaller) UnmarshalProp(_ string, _ string) error {
 	return errors.New("unmarshaling error")
 }

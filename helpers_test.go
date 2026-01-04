@@ -160,6 +160,6 @@ type FaultyPropUnmarshaller struct {
 	Field2 int
 }
 
-func (f *FaultyPropUnmarshaller) UnmarshalProp(key string, value string) error {
+func (f *FaultyPropUnmarshaller) UnmarshalProp(_ string, _ string) error {
 	return errors.New("unmarshaling error")
 }

@@ -53,7 +53,7 @@ func Marshal(v any) ([]byte, error) {
 func encodeStruct(prefix string, val reflect.Value, props map[string]string) error {
 	valType := val.Type()
 
-	for i := 0; i < val.NumField(); i++ {
+	for i := range val.NumField() {
 		field := val.Field(i)
 		fieldType := valType.Field(i)
 

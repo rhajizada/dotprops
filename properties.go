@@ -33,7 +33,7 @@ func parseProperties(data []byte) (map[string]any, error) {
 			keyList := strings.Split(key, ".")
 
 			current := props
-			for i := 0; i < len(keyList)-1; i++ {
+			for i := range len(keyList) - 1 {
 				k := keyList[i]
 				if _, ok := current[k]; !ok {
 					current[k] = make(map[string]any)
@@ -86,7 +86,7 @@ func getNestedProperty(props map[string]any, key string) (any, bool) {
 func setStructFields(structVal reflect.Value, props map[string]any) error {
 	structType := structVal.Type()
 
-	for i := 0; i < structVal.NumField(); i++ {
+	for i := range structVal.NumField() {
 		field := structVal.Field(i)
 		fieldType := structType.Field(i)
 
@@ -102,11 +102,6 @@ func setStructFields(structVal reflect.Value, props map[string]any) error {
 
 	return nil
 }
-
-var (
-	propUnmarshallerType = reflect.TypeOf((*PropUnmarshaller)(nil)).Elem()
-	textUnmarshallerType = reflect.TypeOf((*TextUnmarshaler)(nil)).Elem()
-)
 
 func setStructField(field reflect.Value, fieldType reflect.StructField, props map[string]any) error {
 	if fieldType.Anonymous {
@@ -138,9 +133,34 @@ func setEmbeddedStructField(field reflect.Value, props map[string]any) error {
 			field.Set(reflect.New(field.Type().Elem()))
 		}
 		return setStructFields(field.Elem(), props)
-	default:
+	case reflect.Invalid,
+		reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Array,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Interface,
+		reflect.Map,
+		reflect.Slice,
+		reflect.String,
+		reflect.UnsafePointer:
 		return nil
 	}
+	return nil
 }
 
 func applyFieldValue(field reflect.Value, propertyKey string, value any) error {
@@ -166,6 +186,7 @@ func applyFieldValue(field reflect.Value, propertyKey string, value any) error {
 }
 
 func applyPropUnmarshaller(field reflect.Value, propertyKey string, value any) (bool, error) {
+	propUnmarshallerType := reflect.TypeFor[PropUnmarshaller]()
 	target, ok := interfaceValue(field, propUnmarshallerType)
 	if !ok {
 		return false, nil
@@ -176,13 +197,13 @@ func applyPropUnmarshaller(field reflect.Value, propertyKey string, value any) (
 		return false, nil
 	}
 
-	key, valStr, err := extractKeyValue(propertyKey, value)
-	if err != nil {
-		return true, fmt.Errorf("error extracting key-value for field '%s': %w", propertyKey, err)
+	key, valStr, extractErr := extractKeyValue(propertyKey, value)
+	if extractErr != nil {
+		return true, fmt.Errorf("error extracting key-value for field '%s': %w", propertyKey, extractErr)
 	}
 
-	if err := unmarshaler.UnmarshalProp(key, valStr); err != nil {
-		return true, fmt.Errorf("error unmarshaling field '%s': %w", propertyKey, err)
+	if unmarshalErr := unmarshaler.UnmarshalProp(key, valStr); unmarshalErr != nil {
+		return true, fmt.Errorf("error unmarshaling field '%s': %w", propertyKey, unmarshalErr)
 	}
 	return true, nil
 }
@@ -207,12 +228,38 @@ func applyNestedStruct(field reflect.Value, propertyKey string, value any) (bool
 			field.Set(reflect.New(field.Type().Elem()))
 		}
 		return true, setStructFields(field.Elem(), subProps)
-	default:
+	case reflect.Invalid,
+		reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Array,
+		reflect.Chan,
+		reflect.Func,
+		reflect.Interface,
+		reflect.Map,
+		reflect.Slice,
+		reflect.String,
+		reflect.UnsafePointer:
 		return false, nil
 	}
+	return false, nil
 }
 
 func applyTextUnmarshaller(field reflect.Value, propertyKey string, value any) (bool, error) {
+	textUnmarshallerType := reflect.TypeFor[TextUnmarshaler]()
 	target, ok := interfaceValue(field, textUnmarshallerType)
 	if !ok {
 		return false, nil
